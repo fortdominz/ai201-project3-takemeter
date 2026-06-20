@@ -166,11 +166,14 @@ Manual collection using Reddit's web interface. Copy top-level comments and shor
 
 ## Labeling Decisions — 3 Genuinely Difficult Cases
 
-*(To be filled in after annotation is complete — document 3 hard calls, what you labeled them, and why.)*
+1. **Post:** *"Klose was in four world cups and all four times Germany were through to the semifinals. Also agree with your other points as well. It's a lot of luck, being healthy during the tournament, and that you happen to be in a system that props up your goalscoring. Klose was class but nobody would actually rate him as a better goalscorer than Ronaldo Fenômeno and Messi."*
+   **Decided:** `hot_take` **Why:** Despite citing Klose's semifinal streak (a stat), the post's actual conclusion — "nobody would rate him above Ronaldo/Messi" — overstates what that stat supports and is asserted, not argued. Applying Edge Case 1: the stat decorates a predetermined conclusion. → `hot_take`.
 
-1. **Post:** [to be filled]  **Decided:** [label] **Why:**
-2. **Post:** [to be filled]  **Decided:** [label] **Why:**
-3. **Post:** [to be filled]  **Decided:** [label] **Why:**
+2. **Post:** *"Insane that Mbappe has that many at age 27. He's gonna obliterate the record."*
+   **Decided:** `reaction` **Why:** This is posted in a live match thread immediately after Messi tied Klose's record. The comment expresses amazement at Mbappe's comparative stat in the context of what just happened — time-anchored to the specific event. The "obliterate the record" prediction is the result of the emotional moment, not a standalone analysis. → `reaction` (Edge Case 2: the argument exists to process the emotion about something just happening).
+
+3. **Post:** *"Van Dijk simply deserved it, he was too good, also Liverpool played with a high press, meaning defenders had to cover much more area, and Van Dijk didn't get a single red card whole season, showing he's disciplined too, and high press makes defenders job much much harder."*
+   **Decided:** `analysis` **Why:** Cites a specific tactical context (high press = more defensive area), links it to Van Dijk's specific performance metrics (0 red cards, disciplined), and uses it as the basis of an argument for why he deserved the Ballon d'Or. Multiple supporting points, evidence drives the conclusion — not decoration. → `analysis`.
 
 ---
 

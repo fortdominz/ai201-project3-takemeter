@@ -19,13 +19,13 @@ See [`planning.md`](planning.md) for full label definitions, concrete examples, 
 ## Dataset
 
 - **Source:** Manually collected posts and comments from r/soccer, r/PremierLeague, r/football
-- **Total examples:** 200+ (targeting 210, ~70 per class)
-- **Split:** 70% train / 15% val / 15% test
-- **Label distribution:** *(to be filled after collection)*
+- **Total examples:** 223
+- **Split:** 70% train / 15% val / 15% test → 156 / 33 / 34
+- **Label distribution:** `analysis` 74 | `hot_take` 74 | `reaction` 75
 
 ### Difficult annotation cases
 
-*(To be filled after labeling — 3 examples that required deliberate decision-making)*
+See [`planning.md`](planning.md#labeling-decisions--3-genuinely-difficult-cases) for 3 documented hard calls with reasoning.
 
 ## Model
 
