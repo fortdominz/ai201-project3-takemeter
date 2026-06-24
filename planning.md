@@ -136,22 +136,26 @@
 ### Collection Method
 Manual collection using Reddit's web interface. Copy top-level comments and short posts. Aim for variety across clubs, topics, and time periods to avoid encoding team bias.
 
-### Target Distribution
+### Actual Distribution (collected)
 
-| Label | Target count | % |
-|-------|-------------|---|
-| `analysis` | 70+ | ~33% |
-| `hot_take` | 70+ | ~33% |
-| `reaction` | 70+ | ~33% |
-| **Total** | **210+** | 100% |
+| Label | Count | % |
+|-------|-------|---|
+| `reaction` | 75 | 33.6% |
+| `analysis` | 74 | 33.2% |
+| `hot_take` | 74 | 33.2% |
+| **Total** | **223** | 100% |
+
+No class exceeds 70% — the dataset is balanced, so the model can't win by predicting a majority class.
 
 ### Train / Val / Test Split
 
-| Split | Size | Purpose |
-|-------|------|---------|
-| Train | ~147 (70%) | Fine-tuning |
-| Val | ~32 (15%) | Hyperparameter tuning |
-| Test | ~31 (15%) | Final evaluation (held out until end) |
+The dataset lives as a **single file** (`data/labeled.csv`). The starter notebook performs the
+70% / 15% / 15% train/val/test split automatically at load time, so no pre-split files are committed.
+At 223 examples that is roughly 156 train / 33 val / 34 test.
+
+**If a label ends up underrepresented:** collect more comments from threads rich in that label
+(match threads → `reaction`, "unpopular opinion" posts → `hot_take`, tactical breakdowns → `analysis`)
+until each class clears ~70 examples. (Not needed — collection already landed balanced.)
 
 ---
 
@@ -177,19 +181,73 @@ Manual collection using Reddit's web interface. Copy top-level comments and shor
 
 ---
 
+## Evaluation Metrics
+
+Accuracy alone is not enough here. The three classes are balanced (~33% each), so overall accuracy
+hides *which* distinction the model fails on — a model could score well by nailing the easy `reaction`
+class (often short, emotional, ALL-CAPS) while collapsing the genuinely hard `analysis` vs `hot_take`
+boundary. The metrics below are chosen to expose exactly that.
+
+| Metric | Why it's the right one for this task |
+|--------|--------------------------------------|
+| **Overall accuracy** | Headline sanity check, and the number directly comparable to the zero-shot baseline. On a balanced 3-class task, 33% is the random-guess floor. |
+| **Per-class precision / recall / F1** | The core diagnostic. Tells us whether *each* distinction is being learned. We especially watch `analysis` and `hot_take` F1, since that is the subtle boundary (evidence-driven vs. asserted). |
+| **Macro-F1** | Single summary number that weights all three classes equally, so a strong `reaction` score can't paper over a weak `hot_take` score. This is the primary metric we optimize and report. |
+| **Confusion matrix** | Shows the *direction* of errors. The hypothesis to test: most errors fall in the `analysis ↔ hot_take` cells (the stat-decorated take), not in `reaction`. A directional pattern points to a specific boundary to fix. |
+
+## Definition of Success
+
+Concrete, checkable thresholds (decided before seeing results):
+
+- **Beat the baseline meaningfully.** The fine-tuned model must exceed the zero-shot LLaMA baseline by
+  **≥ 10 accuracy points** on the held-out test set. If fine-tuning barely beats a general model, it
+  added little and the labels may be too easy or too noisy.
+- **Learn all three distinctions.** **Macro-F1 ≥ 0.70** with **no single class F1 below 0.60.** A class
+  near 0 F1 means that boundary wasn't learned — a label/data problem, not just "needs more epochs."
+- **"Good enough for deployment" in a real community tool** (e.g., auto-tagging whether a comment is
+  substantive analysis, a hot take, or a live reaction): macro-F1 in the **0.75–0.80+** range, and in
+  particular `analysis` recall high enough that genuine analysis is rarely mislabeled as a hot take —
+  that's the misclassification that would most annoy the community the tool serves.
+
+If the model lands below these, the write-up treats that as a finding to diagnose (label noise, class
+overlap, training bug), not a failure to hide.
+
+## AI Tool Plan
+
+This project has no code to generate, so AI assistance is concentrated in three places:
+
+1. **Label stress-testing.** Feed the label definitions + edge-case rules to Claude and ask it to
+   generate boundary posts (stat-decorated hot takes, reasoned reactions). If any can't be cleanly
+   classified, tighten the definitions *before* annotating. → Drove the three documented edge-case
+   rules above.
+2. **Annotation assistance (disclosed).** The 223 examples were **pre-labeled by an assisted pass**
+   (a heuristic classifier built from the taxonomy in this doc) rather than labeled cold by hand.
+   Per the spec, every pre-assigned label must be **reviewed and corrected by a human** — that review
+   pass is tracked in the AI usage section of the README, and the most ambiguous (low-confidence)
+   examples are prioritized for manual review. This is the highest-risk step for label noise.
+3. **Failure analysis.** After fine-tuning, the list of wrong predictions is given to an AI tool to
+   surface patterns (length, sarcasm, a specific confused label pair, low-information posts), and each
+   pattern is then verified by re-reading the examples before it goes in the report.
+
+---
+
 ## Fine-Tuning Plan
 
 - **Base model:** `distilbert-base-uncased` (HuggingFace)
-- **Platform:** Google Colab (free T4 GPU)
-- **Key hyperparameter decision to document:** learning rate (likely 2e-5 vs 5e-5) — will run both and report val loss
+- **Platform:** Google Colab (free T4 GPU), via the starter notebook
+- **Starter defaults:** 3 epochs, learning rate `2e-5`, batch size 16
+- **Key hyperparameter decision to document:** whether the defaults suffice or the learning rate needs
+  adjusting. Plan: run defaults first; if val/test `analysis`–`hot_take` F1 is weak, try `5e-5` and/or
+  more epochs and report the comparison in the README.
 
 ---
 
 ## Baseline Comparison Plan
 
 - **Baseline model:** Groq `llama-3.3-70b-versatile` (zero-shot)
-- **Prompt strategy:** Provide label definitions + ask for single-word label output
-- **Evaluation:** Same 31-example test set for both models
+- **Prompt strategy:** Provide the three label definitions + decision rules, instruct single-word label
+  output (the notebook's parser needs a clean response). Prompt text lives in `baseline_groq.py`.
+- **Evaluation:** Same held-out test split (~34 examples) as the fine-tuned model.
 
 ---
 

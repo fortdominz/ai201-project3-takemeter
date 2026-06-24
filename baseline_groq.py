@@ -126,7 +126,8 @@ def run_baseline(test_csv_path: str, api_key: str = None,
 
 def main():
     parser = argparse.ArgumentParser(description="Groq zero-shot baseline for TakeMeter")
-    parser.add_argument("--test", default="data/test.csv", help="Path to test CSV")
+    parser.add_argument("--test", default="data/labeled.csv",
+                        help="CSV to classify (the graded baseline runs in the notebook on its test split)")
     parser.add_argument("--out", default="outputs/baseline_results.json", help="Where to write results JSON")
     parser.add_argument("--model", default="llama-3.3-70b-versatile")
     args = parser.parse_args()
