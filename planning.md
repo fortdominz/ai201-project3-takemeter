@@ -140,18 +140,19 @@ Manual collection using Reddit's web interface. Copy top-level comments and shor
 
 | Label | Count | % |
 |-------|-------|---|
-| `reaction` | 75 | 33.6% |
-| `analysis` | 74 | 33.2% |
-| `hot_take` | 74 | 33.2% |
-| **Total** | **223** | 100% |
+| `reaction` | 75 | 33.8% |
+| `analysis` | 74 | 33.3% |
+| `hot_take` | 73 | 32.9% |
+| **Total** | **222** | 100% |
 
 No class exceeds 70% — the dataset is balanced, so the model can't win by predicting a majority class.
+(223 collected; one unrecoverable 10-character fragment was dropped during a data-cleaning pass.)
 
 ### Train / Val / Test Split
 
 The dataset lives as a **single file** (`data/labeled.csv`). The starter notebook performs the
 70% / 15% / 15% train/val/test split automatically at load time, so no pre-split files are committed.
-At 223 examples that is roughly 156 train / 33 val / 34 test.
+At 222 examples that is roughly 155 train / 33 val / 34 test.
 
 **If a label ends up underrepresented:** collect more comments from threads rich in that label
 (match threads → `reaction`, "unpopular opinion" posts → `hot_take`, tactical breakdowns → `analysis`)
