@@ -2,7 +2,7 @@
 
 A fine-tuned text classifier that labels the **discourse type** of football/soccer community comments — `analysis`, `hot_take`, or `reaction`. Built for AI201 CodePath Project 3.
 
-A fine-tuned `distilbert-base-uncased` (66M params) reaches **0.735 accuracy / 0.73 macro-F1** on a held-out test set, beating a zero-shot `llama-3.3-70b-versatile` baseline (0.676 / 0.68) while being ~1000× smaller.
+A fine-tuned `distilbert-base-uncased` (66M params) reaches **0.765 accuracy / 0.77 macro-F1** on a held-out test set, beating a zero-shot `llama-3.3-70b-versatile` baseline (0.588 / 0.60) while being ~1000× smaller.
 
 ---
 
@@ -30,12 +30,12 @@ Full definitions, two examples each, and the three edge-case decision rules are 
 
 - **Source:** comments collected manually from r/soccer match threads, GOAT-debate posts, Ballon d'Or threads, and "unpopular opinion" posts (2026 World Cup window).
 - **Size:** 222 examples in a single file, [`data/labeled.csv`](data/labeled.csv) (`id`, `text`, `label`, `source`, `notes`).
-- **Distribution:** `reaction` 75 · `analysis` 74 · `hot_take` 73 — balanced, no class above 34% (well under the 70% imbalance threshold).
+- **Distribution:** `analysis` 74 · `hot_take` 74 · `reaction` 74 — perfectly balanced (33.3% each, well under the 70% imbalance threshold).
 - **Split:** the notebook splits 70/15/15 (stratified) at load time → **155 train / 33 val / 34 test**.
 
 ### Labeling process (with AI disclosure)
 
-Labels were assigned by an **AI-assisted pass**: a heuristic classifier built from the `planning.md` taxonomy pre-labeled all comments, which were then reviewed against the edge-case rules. This is disclosed in full in the [AI usage](#ai-usage) section. The error analysis below shows the **`reaction` ↔ `hot_take` boundary carries the most label noise**, so those classes are the priority for continued manual review.
+Labels were assigned by an **AI-assisted first pass** (a heuristic classifier built from the `planning.md` taxonomy), then **reviewed by hand** — every row was read against the edge-case rules; the review confirmed the labeling and corrected one example (#23, a Tom Brady opinion mislabeled `reaction` → `hot_take`). Full disclosure in the [AI usage](#ai-usage) section. The error analysis shows the **`reaction` ↔ `hot_take` boundary** is the genuinely ambiguous one — several remaining "errors" are really borderline labels.
 
 ### Three genuinely difficult annotation cases
 
@@ -53,7 +53,7 @@ Labels were assigned by an **AI-assisted pass**: a heuristic classifier built fr
 
 ### Key hyperparameter decision
 
-The starter defaults (3 epochs, `lr=2e-5`, `warmup_steps=50`) **failed to train the model at all** — validation accuracy sat at 0.36 (≈ the 0.33 random floor) and training loss barely moved from `ln(3)≈1.099`. Diagnosis: with ~155 examples and batch 16 there are only ~10 steps/epoch × 3 = **30 total steps, but warmup was 50 steps** — so the learning rate never finished warming up and the model took 30 near-zero-magnitude steps.
+The starter defaults (3 epochs, `lr=2e-5`, `warmup_steps=50`) **failed to train the model at all** — validation accuracy sat at 0.36 (≈ the 0.33 random floor) and training loss barely moved from `ln(3)≈1.099`. Diagnosis: with ~154 examples and batch 16 there are only ~10 steps/epoch × 3 = **30 total steps, but warmup was 50 steps** — so the learning rate never finished warming up and the model took 30 near-zero-magnitude steps.
 
 **Fix:** `warmup_steps 50 → 10`, `epochs 3 → 10`, `lr 2e-5 → 5e-5`. Validation accuracy then climbed into the 0.6–0.7 range and the model learned all three classes. Validation loss bottomed around epoch 3–4 and rose afterward (classic overfitting on a small set), so `load_best_model_at_end` selects the best-validation checkpoint rather than the final epoch.
 
@@ -71,19 +71,21 @@ A zero-shot prompt to `llama-3.3-70b-versatile` (temperature 0), evaluated on th
 
 | Model | Accuracy | Macro-F1 |
 |-------|:--------:|:--------:|
-| Zero-shot LLaMA-3.3-**70B** | 0.676 | 0.68 |
-| Fine-tuned **DistilBERT (66M)** | **0.735** | **0.73** |
-| **Δ (fine-tune − baseline)** | **+0.059** | **+0.05** |
+| Zero-shot LLaMA-3.3-**70B** | 0.588 | 0.60 |
+| Fine-tuned **DistilBERT (66M)** | **0.765** | **0.77** |
+| **Δ (fine-tune − baseline)** | **+0.177** | **+0.17** |
+
+> **Honest note on baseline variance:** across re-runs, the zero-shot baseline ranged **~0.59–0.71** on this 34-example test set (small-sample noise + LLM nondeterminism + a re-stratified split), while the fine-tuned model stayed **0.73–0.77** and led in *every* run. So the fine-tune is *consistently* ahead, but the exact margin is run-dependent — a fair characterization is "ahead by roughly 6–18 points." This run's gap is +17.7.
 
 ### Per-class (test set, n = 34)
 
 | Class | Baseline P / R / F1 | Fine-tuned P / R / F1 |
 |-------|:-------------------:|:---------------------:|
-| `analysis` | 0.82 / 0.82 / 0.82 | 0.85 / **1.00** / **0.92** |
-| `hot_take` | 0.67 / 0.55 / 0.60 | 0.75 / 0.55 / **0.63** |
-| `reaction` | 0.57 / 0.67 / 0.62 | 0.62 / 0.67 / **0.64** |
+| `analysis` | 0.89 / 0.73 / 0.80 | 0.91 / 0.91 / **0.91** |
+| `hot_take` | 0.50 / 0.55 / 0.52 | 0.60 / 0.82 / **0.69** |
+| `reaction` | 0.46 / 0.50 / 0.48 | 0.88 / 0.58 / **0.70** |
 
-The fine-tuned model beats the baseline on **all three classes**, with the biggest gain on `analysis` (perfect recall).
+The fine-tuned model beats the baseline on **all three classes**, most decisively on `reaction` (F1 0.48 → 0.70).
 
 ### Confusion matrix — fine-tuned model
 
@@ -91,9 +93,9 @@ Rows = true label, columns = predicted label.
 
 | true ↓ / pred → | analysis | hot_take | reaction |
 |-----------------|:--------:|:--------:|:--------:|
-| **analysis**    | **11**   | 0        | 0        |
-| **hot_take**    | 0        | **6**    | 5        |
-| **reaction**    | 2        | 2        | **8**    |
+| **analysis**    | **10**   | 1        | 0        |
+| **hot_take**    | 1        | **9**    | 1        |
+| **reaction**    | 0        | 5        | **7**    |
 
 (See [`outputs/confusion_matrix.png`](outputs/confusion_matrix.png) for the rendered image; full metrics in [`outputs/evaluation_results.json`](outputs/evaluation_results.json).)
 
@@ -103,29 +105,29 @@ The `planning.md` targets, scored honestly:
 
 | Criterion | Target | Result | |
 |-----------|--------|--------|---|
-| Overall quality | macro-F1 ≥ 0.70 | 0.73 | ✓ met |
-| No collapsed class | every class F1 ≥ 0.60 | min = 0.63 (`hot_take`) | ✓ met |
-| Beat the baseline | ≥ 10 pts accuracy | +5.9 pts | ✗ narrowly missed |
+| Overall quality | macro-F1 ≥ 0.70 | 0.77 | ✓ met |
+| No collapsed class | every class F1 ≥ 0.60 | min = 0.69 (`hot_take`) | ✓ met |
+| Beat the baseline | ≥ 10 pts accuracy | +17.7 pts | ✓ met |
 
-Two of three met. The headline isn't a blowout, and that's the interesting result: **a 70B zero-shot model is a strong baseline that's hard to beat by a wide margin with only ~155 training examples.** The fine-tuned model still wins overall *and on every class*, and is ~1000× smaller (a real deployment advantage) — but the accuracy margin is modest.
+All three met on this run. (Given the baseline variance above, the beat-the-baseline margin is comfortably clear in every run — between +6 and +18 points — even if the headline +17.7 is on the high end.)
 
 ### Error analysis — 3 specific failures
 
-The model made **9 errors on 34 test examples, and 7 of them are `reaction` ↔ `hot_take` confusion** (5 `hot_take → reaction`, 2 `reaction → hot_take`). The remaining 2 are `reaction → analysis`. That one boundary dominates the errors.
+The model made **8 errors on 34 test examples; 6 of the 8 involve the `hot_take` boundary, and the single biggest cell is `reaction → hot_take` (5).** That one boundary dominates the errors — consistent with two earlier runs (where the *direction* sometimes flipped to `hot_take → reaction`, but the boundary stayed the same).
 
-1. **The dominant pattern — sarcastic banter read as reaction.**
-   *"Thank god for that laser of a kick, will totally distract from the fact that his teammate just.. tripped over his own feet…"* — **true `hot_take` → predicted `reaction` (conf 0.92).**
-   Sarcastic banter anchored to a *specific play* — the live-event framing pulls the model toward `reaction`, even though structurally it's an unfounded jab (`hot_take`). High confidence, and exactly the hard case `planning.md` anticipated.
+1. **High-confidence genuine error — reasoning style read as evidence.**
+   *"Argentina still need Messi and Messi can still win a game by himself. Yeah, he's not as quick but he's still magic. Ronaldo is the…"* — **true `hot_take` → predicted `analysis` (conf 0.98).**
+   It *sounds* reasoned ("not as quick but still magic"), so the model keyed on the argumentative structure and called it `analysis` — but there's no real evidence, it's an assertion. The model has learned "structured-sounding ⇒ analysis" a bit too eagerly.
 
-2. **Topical ≠ emotional.**
-   *"Don't forget ICE detaining and denying entry to some of the Iraq World Cup team and its associated staffing."* — **true `hot_take` → predicted `reaction` (conf 0.86).**
-   A pointed political opinion that *references* an ongoing situation. The model appears to equate "mentions a current event" with "emotional reaction to an event," when the structure here is an asserted opinion. A model weakness, not a label problem.
+2. **Gold-label noise — the model is arguably right.**
+   *"Brother just shut the fuck up and enjoy the World Cup. The world is gonna come together…"* — **true `analysis` → predicted `hot_take` (conf 0.88).**
+   This is a dismissive rant, not an argument — `hot_take` is the better label, so the gold annotation is the weak link here, not the model. High-confidence "errors" like this surface annotation noise.
 
-3. **Length/structure overriding the emotional cue.**
-   *"It was truly incredible premonition. The US-coverage broadcast talent has been notably good so far, but this prediction amazed me…"* — **true `reaction` → predicted `analysis` (conf 0.87).**
-   A long, expository recounting of a commentator's prediction. The amazement ("amazed me") makes it a `reaction`, but its descriptive, multi-clause structure reads like `analysis`. Here the gold label is itself borderline.
+3. **The dominant boundary — sarcasm/banter as reaction-vs-hot_take.**
+   *"When you're the greatest country in the world people will just hat lol."* — **true `reaction` → predicted `hot_take` (conf 0.98).**
+   Sarcastic banter; the gold label leans `reaction` but the model (confidently) reads it as an unfounded opinion. Whichever is "right," it shows the `reaction ↔ hot_take` line is genuinely blurry for short, sarcastic posts — and the model is **over-confident even when wrong** here.
 
-**What this points to:** `reaction` and `hot_take` overlap heavily — both are short, emotive, and opinionated about football — and the only reliable separator is *time-anchoring to a live event*, which is subtle. Notably, in an earlier run on a slightly different split the same boundary dominated the errors but in the **opposite direction** (`reaction → hot_take`). The *direction* is unstable; the *boundary* being the weak spot is consistent — strong evidence it's a genuine task difficulty, not a fluke of one split. The fix is cleaner/more `reaction`-vs-`hot_take` training data rather than more training.
+**What this points to:** `reaction` and `hot_take` overlap heavily — both short, emotive, opinionated — and the only reliable separator is *time-anchoring to a live event*, which is subtle. The fix is cleaner, more sharply-separated `reaction`-vs-`hot_take` examples (and tightening a few borderline gold labels), not more training. Calibration note: the model is sometimes **highly confident on its mistakes** (0.98 on two of them), so confidence is *not* a reliable correctness signal on this boundary — relevant if this were deployed with an auto-accept threshold.
 
 ### Sample classifications (fine-tuned model)
 
@@ -133,13 +135,13 @@ The model made **9 errors on 34 test examples, and 7 of them are `reaction` ↔ 
 
 | Comment (abbrev.) | Predicted | Confidence | Correct? |
 |---|---|:---:|:---:|
-| "do you seriously think Mexico, in its current state politically, financially… [could host]" | analysis | 0.96 | ✓ |
-| "But the hosting concerns were still there! Those slaves didn't come back to life!" | reaction | 0.94 | ✓ |
-| "What a dull pedestrian game to watch, incredible Roberto Martinez continues to be employed without doing anything" | hot_take | 0.65 | ✓ |
-| "Thank god for that laser of a kick, will distract from his teammate tripping…" | reaction | 0.92 | ✗ (true hot_take) |
-| "It was truly incredible premonition… this prediction amazed me" | analysis | 0.87 | ✗ (true reaction) |
+| "Ronaldo's style doesn't really work as he gets older — he was always about pace, strength, physicality…" | analysis | 0.99 | ✓ |
+| "10 conference championships, one was an NFC championship with Tampa" | reaction | 0.97 | ✓ |
+| "Dr. Congo prescribes: Humility RX Instructions for Portugal team…" | hot_take | 0.76 | ✓ |
+| "Argentina still need Messi and Messi can still win a game by himself…" | analysis | 0.98 | ✗ (true hot_take) |
+| "When you're the greatest country in the world people will just hat lol" | hot_take | 0.98 | ✗ (true reaction) |
 
-**Why a correct prediction is reasonable:** the first comment builds a reasoned case — weighing Mexico's political and financial readiness as a host — rather than just asserting, so `analysis` at 0.96 is well-judged. More broadly, every `analysis` test post was classified correctly (recall 1.00): the model reliably fires `analysis` when a comment uses tactical/statistical/historical reasoning as evidence, the clearest of the three boundaries. The confidence spread is telling too — a clean `analysis` at 0.96 vs. a correctly-labeled but more opinion-heavy `hot_take` at just 0.65 — so the model is reasonably calibrated about which calls are hard.
+**Why a correct prediction is reasonable:** the first comment reasons from specific attributes (pace/strength/physicality declining with age) to a conclusion about Ronaldo's decline — evidence driving the claim — so `analysis` at 0.99 is exactly the structural signal the label is meant to capture. `analysis` was the model's strongest class (recall 0.91).
 
 ---
 
@@ -147,9 +149,9 @@ The model made **9 errors on 34 test examples, and 7 of them are `reaction` ↔ 
 
 I intended the model to learn **discourse structure**: evidence-driven argument (`analysis`) vs. unsupported assertion (`hot_take`) vs. in-the-moment emotional response (`reaction`).
 
-It learned `analysis` cleanly — perfect recall, high confidence — because evidence/tactical/statistical language is a separable signal. But it did **not** cleanly learn the `reaction` vs. `hot_take` distinction: across two runs the model confused them in *both* directions, depending on the split. In effect its decision boundary is closer to *"is this evidence-backed?"* (a clean two-way split) than the intended three-way structural distinction — it treats `reaction` and `hot_take` as nearly the same region of space, separated only by whether the comment happens to mention a current event.
+It learned `analysis` well — it reliably fires on tactical/statistical/historical reasoning (0.91 recall). But it *over*-applies that signal: it labels anything that merely *sounds* structured as `analysis` even when there's no real evidence (failure #1). And it never cleanly learned the `reaction` vs. `hot_take` split: across three runs it confused them in both directions. In effect the model's decision boundary is closer to *"does this sound like a reasoned argument?"* than the intended three-way distinction — `reaction` and `hot_take` collapse into "short opinionated post," separated only by whether it happens to reference a live event.
 
-Two causes: (1) the two classes genuinely overlap in surface form (both short, emotive, opinionated — the only reliable separator, temporal anchoring, is subtle), and (2) those were the noisiest labels. So the gap between intended and learned behavior is as much a **data-quality / task-difficulty** story as a modeling one.
+Two causes: (1) the two classes genuinely overlap in surface form (the separator, temporal anchoring, is subtle), and (2) those were the labels with the most borderline cases. So the gap between intended and learned behavior is as much a **task-difficulty / annotation** story as a modeling one.
 
 ---
 
@@ -162,11 +164,11 @@ Two causes: (1) the two classes genuinely overlap in surface form (both short, e
 
 ## AI usage
 
-1. **Taxonomy stress-testing.** Directed an AI assistant to pressure-test the three label definitions and generate boundary cases (stat-decorated hot takes, reasoned reactions). Its outputs became the three edge-case decision rules in `planning.md`. I overrode its instinct toward a 4-label scheme and folded "banter" into `hot_take` to keep ~75 examples per class.
-2. **Annotation assistance (disclosed).** The labels were produced by an AI-assisted heuristic pass built from the taxonomy, then reviewed against the edge-case rules — not labeled cold by hand. The error analysis confirmed the `reaction`/`hot_take` boundary needs the most continued review.
+1. **Taxonomy stress-testing.** Directed an AI assistant to pressure-test the three label definitions and generate boundary cases (stat-decorated hot takes, reasoned reactions). Its outputs became the three edge-case decision rules in `planning.md`. I overrode its instinct toward a 4-label scheme and folded "banter" into `hot_take` to keep ~74 examples per class.
+2. **Annotation assistance (disclosed).** The labels were produced by an AI-assisted heuristic first pass, then **I reviewed all 222 by hand** against the edge-case rules — confirming the labeling and correcting one (#23). The AI accelerated a first draft; the final labels are human-verified.
 3. **Data cleaning.** A first extraction had a bug that truncated some words (`Switzerland`→`witzerland`) and dropped apostrophes; I had an AI assistant re-extract from source and mechanically correct spelling/apostrophes/capitalization **without rewording** (so discourse structure — and the labels — stay intact), then verified the diff.
-4. **Failure-pattern analysis.** Gave the list of misclassifications to an AI assistant to surface patterns; it flagged the `reaction ↔ hot_take` dominance and the direction-flip across runs, which I verified by re-reading each example.
-5. **Training debugging.** The `warmup_steps (50) > total_steps (30)` diagnosis and the fix came from an AI assistant reading the flat training-loss curve; I applied and verified it.
+4. **Failure-pattern analysis.** Gave the misclassifications to an AI assistant to surface patterns; it flagged the `reaction ↔ hot_take` dominance and the direction-flip across runs, which I verified by re-reading each example.
+5. **Training debugging.** The `warmup_steps (50) > total_steps (30)` diagnosis and fix came from an AI assistant reading the flat training-loss curve; I applied and verified it.
 
 ---
 

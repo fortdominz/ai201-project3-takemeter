@@ -140,13 +140,13 @@ Manual collection using Reddit's web interface. Copy top-level comments and shor
 
 | Label | Count | % |
 |-------|-------|---|
-| `reaction` | 75 | 33.8% |
 | `analysis` | 74 | 33.3% |
-| `hot_take` | 73 | 32.9% |
+| `hot_take` | 74 | 33.3% |
+| `reaction` | 74 | 33.3% |
 | **Total** | **222** | 100% |
 
-No class exceeds 70% — the dataset is balanced, so the model can't win by predicting a majority class.
-(223 collected; one unrecoverable 10-character fragment was dropped during a data-cleaning pass.)
+Perfectly balanced — no class anywhere near 70%, so the model can't win by predicting a majority class.
+(223 collected; one unrecoverable 10-character fragment was dropped during a data-cleaning pass, and a hand label-review reassigned one example.)
 
 ### Train / Val / Test Split
 
