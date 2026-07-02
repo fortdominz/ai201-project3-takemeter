@@ -145,6 +145,12 @@ The model made **8 errors on 34 test examples; 6 of the 8 involve the `hot_take`
 
 ---
 
+## Demo
+
+📹 **[Watch the demo walkthrough (Loom, ~3 min)](https://www.loom.com/share/45b6b7fbcc4c4023a4f3a75199036af5)** — live classifications with confidence scores, a correct and an incorrect prediction explained, and a walkthrough of the evaluation report.
+
+---
+
 ## Reflection — what the model learned vs. what I intended
 
 I intended the model to learn **discourse structure**: evidence-driven argument (`analysis`) vs. unsupported assertion (`hot_take`) vs. in-the-moment emotional response (`reaction`).
